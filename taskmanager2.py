@@ -135,7 +135,6 @@ def pridat_ukol():
 def zobrazit_ukoly():
     """Zobrazí úkoly z databáze se stavem 'Nezahájeno' nebo 'Probíhá'."""
 
-    # kontrola připojení k databázi
     if db_connection is None or not db_connection.is_connected():
         print("\nNelze zobrazit úkoly — není aktivní připojení k databázi.")
         return
@@ -143,9 +142,8 @@ def zobrazit_ukoly():
     try:
         cursor = db_connection.cursor(dictionary=True)
 
-        # Načtení úkolů s požadovaným stavem
         cursor.execute("""
-            SELECT id, nazev, popis, stav, datum_vytvoreni
+            SELECT id, nazev, popis, stav
             FROM ukoly
             WHERE stav IN ('Nezahájeno', 'Probíhá')
             ORDER BY id
@@ -159,18 +157,10 @@ def zobrazit_ukoly():
         print("\nSeznam úkolů:")
         print("-" * 80)
         for u in ukoly:
-            dv = u['datum_vytvoreni']
-            # Naformátování datumu (pokud je to datetime objekt)
-            if isinstance(dv, datetime.datetime):
-                dv_str = dv.strftime("%d.%m.%Y %H:%M")
-            else:
-                dv_str = str(dv)
-
             print(f"ID: {u['id']}")
             print(f"Název: {u['nazev']}")
             print(f"Popis: {u['popis']}")
             print(f"Stav: {u['stav']}")
-            print(f"Vytvořeno: {dv_str}")
             print("-" * 80)
 
     except mysql.connector.Error as e:
