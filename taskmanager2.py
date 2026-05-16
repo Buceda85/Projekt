@@ -15,7 +15,7 @@ def pripojeni_db():
             host="localhost",
             user="root",
             password="Test123!",
-            database="sys"
+            database="projekt2"
         )
 
         if db_connection.is_connected():
