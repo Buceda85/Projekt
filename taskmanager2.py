@@ -1,7 +1,9 @@
-import mysql.connector, datetime
+import os, mysql.connector, datetime
+from dotenv import load_dotenv
 from mysql.connector import Error
 
 db_connection = None
+load_dotenv()
 
 # funkce pro připojení programu k MySQL databázi
 def pripojeni_db():
@@ -12,10 +14,10 @@ def pripojeni_db():
 
     try:
         db_connection = mysql.connector.connect(
-            host="localhost",
-            user="root",
-            password="Test123!",
-            database="projekt2"
+            host=os.getenv("DB_HOST"),
+            user=os.getenv("DB_USER"),
+            password=os.getenv("DB_PASSWORD"),
+            database=os.getenv("DB_NAME")
         )
 
         if db_connection.is_connected():
