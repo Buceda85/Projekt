@@ -1,40 +1,81 @@
-import os, mysql.connector, datetime
+import os, mysql.connector
 from dotenv import load_dotenv
 from mysql.connector import Error
 
-db_connection = None
 load_dotenv()
 
 # funkce pro připojení programu k MySQL databázi
 def pripojeni_db():
-    """Pokusí se připojit k MySQL databázi.
-       Při úspěchu vrátí connection objekt, při neúspěchu None.
-    """
-    global db_connection
+    """Vytvoří databázi, pokud neexistuje, a vrátí připojení k databázi."""
+
+    db_host = os.getenv("DB_HOST")
+    db_user = os.getenv("DB_USER")
+    db_password = os.getenv("DB_PASSWORD")
+    db_name = os.getenv("DB_NAME")
+
+    if db_host is None or db_user is None or db_password is None or db_name is None:
+        print("Chybí údaje pro připojení k databázi v souboru .env.")
+        return None
+
+    server_connection = None
+    cursor = None
 
     try:
-        db_connection = mysql.connector.connect(
-            host=os.getenv("DB_HOST"),
-            user=os.getenv("DB_USER"),
-            password=os.getenv("DB_PASSWORD"),
-            database=os.getenv("DB_NAME")
+        # 1) Připojení k MySQL serveru bez výběru konkrétní databáze
+        server_connection = mysql.connector.connect(
+            host=db_host,
+            user=db_user,
+            password=db_password
         )
 
-        if db_connection.is_connected():
-            print("\nPřipojení k databázi bylo úspěšné.")
-            return db_connection
-        else:
-            print("\nNepodařilo se připojit k databázi.")
-            return None
+        cursor = server_connection.cursor()
+
+        # Ošetření názvu databáze pro použití v SQL příkazu
+        safe_db_name = db_name.replace("`", "``")
+
+        # 2) Vytvoření databáze, pokud ještě neexistuje
+        cursor.execute(
+            f"CREATE DATABASE IF NOT EXISTS `{safe_db_name}` "
+            "CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci"
+        )
+        server_connection.commit()
 
     except Error as e:
-        print("\nChyba při připojování k databázi:")
+        print("Chyba při vytváření databáze:")
+        print(e)
+        return None
+
+    finally:
+        if cursor is not None:
+            cursor.close()
+
+        if server_connection is not None and server_connection.is_connected():
+            server_connection.close()
+
+    try:
+        # 3) Připojení už přímo ke konkrétní databázi
+        connection = mysql.connector.connect(
+            host=db_host,
+            user=db_user,
+            password=db_password,
+            database=db_name
+        )
+
+        if connection.is_connected():
+            print("Připojení k databázi bylo úspěšné.")
+            return connection
+
+    except Error as e:
+        print("Chyba při připojování k databázi:")
         print(e)
         return None
 
 # funkce pro vytvoření SQL tabulky "ukoly"
 def vytvoreni_tabulky(connection):
     """Vytvoří tabulku 'ukoly', pokud ještě neexistuje."""
+
+    cursor = None
+
     try:
         cursor = connection.cursor()
         cursor.execute("""
@@ -48,11 +89,16 @@ def vytvoreni_tabulky(connection):
         """)
         connection.commit()
         print("Tabulka 'ukoly' byla ověřena nebo úspěšně vytvořena.")
+
     except mysql.connector.Error as e:
         print("Chyba při vytváření tabulky:", e)
 
+    finally:
+        if cursor is not None:
+            cursor.close()
+
 # funkce hlavního menu
-def hlavni_menu():
+def hlavni_menu(connection):
     while True:
         print("\nSprávce úkolů — Hlavní menu")
         print("1. Přidat nový úkol")
@@ -68,44 +114,62 @@ def hlavni_menu():
             print("\nNezadali jste žádnou volbu. Zkuste to znovu.")
             continue
         if not volba.isdigit():
-            print("\nVolba musí být číslo 1–4. Zkuste to znovu.")
+            print("\nVolba musí být číslo 1–5. Zkuste to znovu.")
             continue
 
         volba = int(volba)
 
         if volba == 1:
-            pridat_ukol()
+            pridat_ukol(connection)
         elif volba == 2:
-            zobrazit_ukoly()
+            zobrazit_ukoly(connection)
         elif volba == 3:
-            aktualizovat_ukol()
+            aktualizovat_ukol(connection)
         elif volba == 4:
-            odstranit_ukol()
+            odstranit_ukol(connection)
         elif volba == 5:
             print("\nKonec programu.")
             break
         else:
-            print("\nNeplatná volba. Zadejte číslo v rozmezí 1–4.")
+            print("\nNeplatná volba. Zadejte číslo v rozmezí 1–5.")
 
 # funkce pro přidání úkolu do seznamu úkolů
-def pridat_ukol():
-    # použití cyklu pro možnost opakovaného zadávání názvu a popisu úkolu.
+def pridat_ukol(connection):
+    """Přidá nový úkol do databáze."""
+
+    # kontrola připojení k databázi
+    if connection is None or not connection.is_connected():
+        print("\nNelze uložit úkol — není aktivní připojení k databázi.")
+        return
+
     while True:
-        nazev_ukolu = input("\nZadejte název úkolu: ").strip()
+        print("\nPřidání nového úkolu")
+        print("Zadejte 0 pro návrat do hlavního menu.")
+
+        nazev_ukolu = input("Zadejte název úkolu: ").strip()
+
+        if nazev_ukolu == "0":
+            print("\nNávrat do hlavního menu bez přidání úkolu.")
+            return
+
         if not nazev_ukolu:
             print("\nNázev úkolu nesmí být prázdný. Zkuste to prosím znovu.")
             continue
 
         popis_ukolu = input("Zadejte popis úkolu: ").strip()
+
+        if popis_ukolu == "0":
+            print("\nNávrat do hlavního menu bez přidání úkolu.")
+            return
+
         if not popis_ukolu:
             print("\nPopis úkolu nesmí být prázdný. Zkuste to prosím znovu.")
             continue
 
-        if db_connection is None or not db_connection.is_connected():
-            print("\nNelze uložit úkol — není aktivní připojení k databázi.")
-            return
+        cursor = None
+
         try:
-            cursor = db_connection.cursor()
+            cursor = connection.cursor()
 
             vychozi_stav = "Nezahájeno"
 
@@ -116,33 +180,37 @@ def pridat_ukol():
             hodnoty = (nazev_ukolu, popis_ukolu, vychozi_stav)
 
             cursor.execute(sql, hodnoty)
-            db_connection.commit()
+            connection.commit()
 
             nove_id = cursor.lastrowid
 
-            print(f"\nÚkol byl úspěšně přidán do databáze.")
+            print("\nÚkol byl úspěšně přidán do databáze.")
             print(f"   ID: {nove_id}")
             print(f"   Název: {nazev_ukolu}")
             print(f"   Popis: {popis_ukolu}")
             print(f"   Stav: {vychozi_stav}")
 
-            break
+            return
 
         except mysql.connector.Error as e:
             print("\nDošlo k chybě při ukládání úkolu do databáze:")
             print(e)
-            break
+            return
+
+        finally:
+            if cursor is not None:
+                cursor.close()
 
 # funkce pro zobrazení všech přidaných úkolů uživatelem
-def zobrazit_ukoly():
+def zobrazit_ukoly(connection):
     """Zobrazí úkoly z databáze se stavem 'Nezahájeno' nebo 'Probíhá'."""
 
-    if db_connection is None or not db_connection.is_connected():
+    if connection is None or not connection.is_connected():
         print("\nNelze zobrazit úkoly — není aktivní připojení k databázi.")
         return
 
     try:
-        cursor = db_connection.cursor(dictionary=True)
+        cursor = connection.cursor(dictionary=True)
 
         cursor.execute("""
             SELECT id, nazev, popis, stav
@@ -170,16 +238,16 @@ def zobrazit_ukoly():
         print(e)
 
 # funkce pro aktualizování úkolu v databázi
-def aktualizovat_ukol():
+def aktualizovat_ukol(connection):
     """Změna stavu úkolu v databázi."""
 
     # kontrola připojení k databázi
-    if db_connection is None or not db_connection.is_connected():
+    if connection is None or not connection.is_connected():
         print("\nNelze pracovat s úkoly — není aktivní připojení k databázi.")
         return
 
     try:
-        cursor = db_connection.cursor(dictionary=True)
+        cursor = connection.cursor(dictionary=True)
 
         while True:
             # 1) Načtení seznamu úkolů
@@ -258,7 +326,7 @@ def aktualizovat_ukol():
                         "UPDATE ukoly SET stav = %s WHERE id = %s",
                         (novy_stav, id_ukolu)
                     )
-                    db_connection.commit()
+                    connection.commit()
 
                     print(f"\nStav úkolu byl úspěšně změněn z '{vybrany['stav']}' na '{novy_stav}'.")
                     return  # po úspěšné změně končíme funkci
@@ -273,16 +341,16 @@ def aktualizovat_ukol():
         print(e)
 
 # funkce pro odebrání konkrétního úkolu zadáním čísla úkolu v seznamu
-def odstranit_ukol():
+def odstranit_ukol(connection):
     """Odstraní úkol z databáze podle ID."""
 
     # kontrola připojení k databázi
-    if db_connection is None or not db_connection.is_connected():
+    if connection is None or not connection.is_connected():
         print("\nNelze pracovat s úkoly — není aktivní připojení k databázi.")
         return
 
     try:
-        cursor = db_connection.cursor(dictionary=True)
+        cursor = connection.cursor(dictionary=True)
 
         while True:
             # 1) Načtení seznamu úkolů
@@ -348,7 +416,7 @@ def odstranit_ukol():
 
             # 6) Odstranění z databáze
             cursor.execute("DELETE FROM ukoly WHERE id = %s", (id_ukolu,))
-            db_connection.commit()
+            connection.commit()
 
             print(f"\nÚkol s ID {id_ukolu} a názvem '{vybrany['nazev']}' byl trvale odstraněn z databáze.")
             return # úspěšné smazání, ukončíme cyklus
@@ -357,52 +425,19 @@ def odstranit_ukol():
         print("\nDošlo k chybě při odstraňování úkolu z databáze:")
         print(e)
 
-    while True:
-        # pokud je seznam prázdný, informuj uživatele a vrať se do hlavního menu
-        if not ukoly:
-            print("\nSeznam úkolů je prázdný. Není co mazat.")
-            input("Stiskněte Enter pro návrat do hlavního menu...")
-            return
-
-        zobrazit_ukoly()
-        vstup = input("Zadejte číslo úkolu, který chcete odstranit (nebo 0 pro návrat do hlavního menu): ").strip()
-
-        # ošetření pokud uživatel zadá prázdný vstup
-        if not vstup:
-            print("\nNezadali jste číslo úkolu, který si přejete smazat. Zkuste to prosím znovu.")
-            continue
-    
-        # ošetření pokud uživatel zadá jiné znaky než číselné
-        if not vstup.isdigit():
-            print("\nNezadali jste celé kladné číslo. Zkuste to prosím znovu.")
-            continue
-
-        cislo = int(vstup)
-
-        if cislo == 0:
-            print("\nNávrat do hlavního menu.")
-            return
-        
-         # uživatel vidí pořadí úkolu od "1.", ale indexy začínají v Pythonu od "0"
-        index = cislo - 1
-
-        # podmínka pro zadání jiného vstupu než reálného čísla úkolu v seznamu
-        if index < 0 or index >= len(ukoly):
-            print("\nTakové číslo úkolu v seznamu není. Zkuste to prosím znovu.")
-            continue
-
-        # odebrání konkrétního úkolu ze sezmamu úkolů za pomocí indexu úkolu
-        odebrany_ukol = ukoly.pop(index)
-        print(f"\nÚkol '{odebrany_ukol['nazev']}' byl odstraněn.")
-        break
-
 if __name__ == "__main__":
     conn = pripojeni_db()
 
     if conn is not None:
-        # připojení proběhlo v pořádku = program se spustí
-        vytvoreni_tabulky(conn)
-        hlavni_menu()
+        try:
+            # připojení proběhlo v pořádku = program se spustí
+            vytvoreni_tabulky(conn)
+            hlavni_menu(conn)
+
+        finally:
+            if conn.is_connected():
+                conn.close()
+                print("\nPřipojení k databázi bylo ukončeno.")
     else:
         # připojení selhalo = program se ukončí
         print("\nProgram bude ukončen z důvodu chyby připojení k databázi.")

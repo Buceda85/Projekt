@@ -30,6 +30,8 @@ Před spuštěním projektu je potřeba mít nainstalované:
 - MySQL Server
 - pip
 
+MySQL Server musí být spuštěný a uživatel uvedený v souboru `.env` musí mít oprávnění pro vytvoření databáze.
+
 ---
 
 ## Instalace projektu
@@ -55,37 +57,9 @@ python -m pip install -r requirements.txt
 
 ---
 
-## Nastavení databáze
-
-Projekt používá lokální MySQL databázi s názvem:
-
-```text
-projekt2
-```
-
-Databázi je možné vytvořit pomocí přiloženého souboru:
-
-```text
-database.sql
-```
-
-Soubor obsahuje příkaz:
-
-```sql
-CREATE DATABASE IF NOT EXISTS projekt2
-CHARACTER SET utf8mb4
-COLLATE utf8mb4_unicode_ci;
-```
-
-Tento SQL příkaz lze spustit například v aplikaci MySQL Workbench.
-
-Tabulka `ukoly` se vytvoří automaticky při spuštění aplikace, pokud ještě neexistuje.
-
----
-
 ## Nastavení připojení k databázi
 
-Projekt používá soubor `.env`, který obsahuje lokální přihlašovací údaje k databázi.
+Projekt používá soubor `.env`, který obsahuje lokální přihlašovací údaje k MySQL databázi.
 
 Soubor `.env` není součástí repozitáře, protože může obsahovat citlivé údaje, například heslo k databázi.
 
@@ -95,7 +69,7 @@ V repozitáři je přiložený vzorový soubor:
 .env.example
 ```
 
-Podle tohoto souboru je potřeba vytvořit vlastní soubor:
+Podle tohoto souboru je potřeba vytvořit vlastní lokální soubor:
 
 ```text
 .env
@@ -111,6 +85,55 @@ DB_NAME=projekt2
 ```
 
 Hodnotu `DB_PASSWORD` je potřeba upravit podle vlastního hesla k MySQL.
+
+---
+
+## Nastavení testovací databáze
+
+Testy mohou používat samostatný soubor:
+
+```text
+.env.test
+```
+
+Soubor `.env.test` není součástí repozitáře, protože může obsahovat citlivé údaje.
+
+Příklad obsahu souboru `.env.test`:
+
+```env
+TEST_DB_HOST=localhost
+TEST_DB_USER=root
+TEST_DB_PASSWORD=your_mysql_password
+TEST_DB_NAME=test_projekt2
+```
+
+Testovací databáze je oddělená od hlavní databáze aplikace, aby testy nemazaly běžná data.
+
+Pokud soubor `.env.test` neexistuje, testy mohou využít hodnoty ze souboru `.env`.
+
+---
+
+## Nastavení databáze
+
+Aplikace vytváří databázi automaticky při spuštění.
+
+Při spuštění se aplikace nejprve připojí k MySQL serveru bez výběru konkrétní databáze a následně provede vytvoření databáze, pokud ještě neexistuje.
+
+Používaná databáze pro běžný běh aplikace:
+
+```text
+projekt2
+```
+
+Název databáze je možné změnit v souboru `.env` pomocí proměnné:
+
+```env
+DB_NAME=projekt2
+```
+
+Tabulka `ukoly` se také vytvoří automaticky při spuštění aplikace, pokud ještě neexistuje.
+
+Soubor `database.sql` je v projektu ponechán pouze jako volitelný pomocný přehled databázové struktury. Pro spuštění aplikace není nutné tento soubor ručně spouštět.
 
 ---
 
@@ -149,8 +172,16 @@ python -m pytest
 Testy se nachází ve složce:
 
 ```text
-Tests/
+tests/
 ```
+
+Testy používají samostatnou testovací databázi:
+
+```text
+test_projekt2
+```
+
+Testovací databáze i tabulka se vytvoří automaticky, pokud ještě neexistují.
 
 ---
 
@@ -161,7 +192,6 @@ projekt/
 ├── tests/
 │   ├── conftest.py
 │   └── test_ukoly.py
-├── .env
 ├── .env.example
 ├── .gitignore
 ├── database.sql
@@ -171,22 +201,50 @@ projekt/
 └── taskmanager2.py
 ```
 
+Lokální soubory `.env` a `.env.test` nejsou součástí repozitáře, protože mohou obsahovat citlivé údaje.
+
+---
+
+## Soubor database.sql
+
+Soubor `database.sql` slouží pouze jako volitelný pomocný soubor s SQL strukturou databáze.
+
+Aplikace pro své spuštění nevyžaduje ruční spuštění tohoto souboru.
+
+Databáze i tabulka se vytváří automaticky přímo v aplikaci při spuštění programu.
+
 ---
 
 ## Poznámka k databázi
 
-Databáze samotná není součástí repozitáře.
+Databáze ani data nejsou součástí repozitáře.
 
-Každý uživatel si ji vytvoří lokálně pomocí souboru `database.sql`.
+Aplikace si databázi i tabulku vytvoří automaticky při spuštění podle údajů uvedených v lokálním souboru `.env`.
 
-Aplikace se následně připojí k databázi podle údajů uvedených v lokálním souboru `.env`.
-
-Tabulka `ukoly` je vytvářena automaticky samotnou aplikací.
+Testy si samostatnou testovací databázi vytvoří automaticky podle údajů v `.env.test` nebo podle záložních hodnot v `.env`.
 
 ---
 
 ## Poznámka k citlivým údajům
 
-Soubor `.env` je záměrně uvedený v `.gitignore`, aby se nenahrával na GitHub.
+Soubor `.env` a případně také `.env.test` jsou záměrně uvedeny v `.gitignore`, aby se nenahrávaly na GitHub.
 
 Do repozitáře patří pouze vzorový soubor `.env.example`, který neobsahuje skutečné heslo k databázi.
+
+---
+
+## requirements.txt
+
+Projekt používá tyto Python knihovny:
+
+```text
+mysql-connector-python
+python-dotenv
+pytest
+```
+
+Instalace všech závislostí probíhá pomocí:
+
+```bash
+python3 -m pip install -r requirements.txt
+```

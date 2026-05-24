@@ -7,7 +7,7 @@ def test_pridat_ukol_pozitivni(app_module, db_connection, monkeypatch, capsys):
 
     monkeypatch.setattr("builtins.input", lambda _: next(vstupy))
 
-    app_module.pridat_ukol()
+    app_module.pridat_ukol(db_connection)
 
     vystup = capsys.readouterr().out
 
@@ -34,7 +34,7 @@ def test_pridat_ukol_negativni(app_module, db_connection, monkeypatch, capsys):
 
     monkeypatch.setattr("builtins.input", lambda _: next(vstupy))
 
-    app_module.pridat_ukol()
+    app_module.pridat_ukol(db_connection)
 
     vystup = capsys.readouterr().out
 
@@ -80,7 +80,7 @@ def test_aktualizovat_ukol_pozitivni(app_module, db_connection, monkeypatch, cap
     monkeypatch.setattr("builtins.input", lambda _: next(vstupy))
 
     # 3. Zavolání testované funkce
-    app_module.aktualizovat_ukol()
+    app_module.aktualizovat_ukol(db_connection)
 
     # 4. Zachycení výstupu
     vystup = capsys.readouterr().out
@@ -119,15 +119,17 @@ def test_aktualizovat_ukol_negativni(app_module, db_connection, monkeypatch, cap
     # 2. Simulace vstupů:
     #    - nejprve neexistující ID
     #    - potom 0 pro návrat do hlavního menu
+    neexistujici_id = id_existujiciho_ukolu + 9999
+
     vstupy = iter([
-        "9999",
+        str(neexistujici_id),
         "0"
     ])
 
     monkeypatch.setattr("builtins.input", lambda _: next(vstupy))
 
     # 3. Zavolání testované funkce
-    app_module.aktualizovat_ukol()
+    app_module.aktualizovat_ukol(db_connection)
 
     # 4. Zachycení výstupu
     vystup = capsys.readouterr().out
@@ -175,7 +177,7 @@ def test_odstranit_ukol_pozitivni(app_module, db_connection, monkeypatch, capsys
     monkeypatch.setattr("builtins.input", lambda _: next(vstupy))
 
     # 3. Zavolání testované funkce
-    app_module.odstranit_ukol()
+    app_module.odstranit_ukol(db_connection)
 
     # 4. Zachycení výstupu
     vystup = capsys.readouterr().out
@@ -221,7 +223,7 @@ def test_odstranit_ukol_negativni(app_module, db_connection, monkeypatch, capsys
     monkeypatch.setattr("builtins.input", lambda _: next(vstupy))
 
     # 3. Zavolání testované funkce
-    app_module.odstranit_ukol()
+    app_module.odstranit_ukol(db_connection)
 
     # 4. Zachycení výstupu
     vystup = capsys.readouterr().out
